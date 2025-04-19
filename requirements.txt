@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+openai
+faiss-cpu
+numpy
+python-docx
+pytesseract
+Pillow
+PyMuPDF
+jinja2
+python-multipart
+python-dotenv

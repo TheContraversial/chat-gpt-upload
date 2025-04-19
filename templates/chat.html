@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat + Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2em;
+      max-width: 900px;
+      margin: auto;
+    }
+    #chat {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1em;
+      min-height: 300px;
+      margin: 1em 0;
+      background: #f9f9f9;
+    }
+    .bubble {
+      margin: 0.5em 0;
+      padding: 0.75em 1em;
+      border-radius: 1em;
+      max-width: 80%;
+      clear: both;
+      white-space: pre-wrap;
+    }
+    .user {
+      background: #d0eaff;
+      float: right;
+      text-align: right;
+    }
+    .assistant {
+      background: #e8ffe8;
+      float: left;
+    }
+    input[type="file"], input[type="text"] {
+      padding: 0.5em;
+      margin: 0.5em 0;
+      width: 100%;
+    }
+    button {
+      padding: 0.5em 1em;
+      margin: 0.25em 0;
+      cursor: pointer;
+    }
+    .row {
+      display: flex;
+      gap: 1em;
+      flex-wrap: wrap;
+    }
+    .row > div {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chat + Upload</h1>
+
+  <div class="row">
+    <div><input type="file" id="docx" accept=".docx" /><button onclick="uploadFile('docx')">Upload DOCX</button></div>
+    <div><input type="file" id="pdf" accept=".pdf" /><button onclick="uploadFile('pdf')">Upload PDF</button></div>
+    <div><input type="file" id="txt" accept=".txt" /><button onclick="uploadFile('txt')">Upload TXT</button></div>
+    <div><input type="file" id="image" accept="image/*" /><button onclick="uploadFile('image')">Upload Image</button></div>
+  </div>
+
+  <div id="chat"></div>
+
+  <div class="row">
+    <input type="text" id="message" placeholder="Ask something..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    const chatDiv = document.getElementById('chat');
+    let chatId = null;
+
+    async function startChat() {
+      const res = await fetch('/start-chat', { method: 'POST' });
+      const data = await res.json();
+      chatId = data.chat_id;
+    }
+
+    function appendMessage(sender, text) {
+      const div = document.createElement('div');
+      div.className = `bubble ${sender}`;
+      div.textContent = text;
+      chatDiv.appendChild(div);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+      return div;
+    }
+
+    async function uploadFile(type) {
+      if (!chatId) return alert("Chat not initialized");
+      const fileInput = document.getElementById(type);
+      const file = fileInput.files[0];
+      if (!file) return alert("Select a file first");
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('chat_id', chatId);
+
+      try {
+        const res = await fetch(`/upload-${type}`, { method: 'POST', body: formData });
+        const result = await res.json();
+        if (res.ok) {
+          appendMessage('assistant', `${type.toUpperCase()} '${file.name}' uploaded.`);
+        } else {
+          appendMessage('assistant', `[Upload error] ${result.error}`);
+        }
+      } catch (e) {
+        appendMessage('assistant', `[Upload failed] ${e.message}`);
+      }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('message');
+      const msg = input.value.trim();
+      if (!msg) return;
+      if (!chatId) return alert("Chat not initialized");
+
+      appendMessage('user', msg);
+      input.value = '';
+
+      const replyDiv = appendMessage('assistant', '');
+
+      try {
+        const res = await fetch('/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, message: msg })
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          replyDiv.textContent += decoder.decode(value);
+          chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+      } catch (err) {
+        replyDiv.textContent = `[Error] ${err.message}`;
+      }
+    }
+
+    window.onload = startChat;
+  </script>
+</body>
+</html>

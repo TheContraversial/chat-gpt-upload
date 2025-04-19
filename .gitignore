@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.env
+.env
+*.sqlite3
+*.db
+
+# macOS
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Python virtualenv
+venv/
+
+# Uploads & temp
+*.docx
+*.pdf
+*.png
+*.txt
+
+# Render logs
+render-build.log
